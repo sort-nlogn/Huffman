@@ -14,7 +14,7 @@ typedef struct Tnode{
 }node;
 
 int key(const node *a, const node *b){
-    return a->freq - b->freq;
+    return a->freq - b->freq;   
 }
 
 void reverse_string(char *s){
