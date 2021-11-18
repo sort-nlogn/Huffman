@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #define MAX_COMMAND_LENGTH 128
 
@@ -26,18 +27,31 @@ typedef enum{
     RESET_PATH, // если корректный путь, то назад в encode|decode, иначе CONFIRM_RESET
 }ProgramState;
 
-// void list_files(const char *dir_name){
-//     DIR *dir = opendir(dir_name);
-//     if(!dir){
-//         return;
-//     }
+void handle_query(const char *dir_name, const void (*f)(const char *dir_name)){
+    DIR *dir = opendir(dir_name);
+    struct dirent *entity = readdir(dir);
+    struct stat s;
 
-//     struct dirent* entity;
-//     entity = readdir(dir);
-//     while(entity){
+    while(entity){
+        if(!strcmp(entity->d_name, ".") || !strcmp(entity->d_name, "..")){
+            entity = readdir(dir);
+            continue;
+        }
 
-//     }
-// }
+        char path[256] = {'\0'};
+        strcat(path, dir_name);
+        strcat(path, "\\");
+        strcat(path, entity->d_name);
+        stat(path, &s);
+        
+        if(s.st_mode & S_IFDIR){
+            handle_query(path, f);
+        }else{
+            printf("%s from %s\n", entity->d_name, dir_name); 
+        }
+        entity = readdir(dir);
+    }
+}
 
 
 
@@ -70,33 +84,5 @@ int main(){
     // ProgramState curr_state = COMMAND_INPUT, prev_state;
     // char entred_command[MAX_COMMAND_LENGTH] = {'\0'}, *left_word, *right_word;
     // scanf("%[^\n]", entred_command);
-    // parse_input(entred_command);
-    DIR *dir = opendir(".");
-    struct dirent* some;
-    some = readdir(dir);
-
-    while (some != NULL){
-        printf("%s\n",some->d_type);
-        some = readdir(dir);
-    }
-
-    closedir(dir);
-    // char reset[128] = {'\0'};
-    // scanf("%[^\n^ ]", reset);
-    // if(!strcmp(reset, "y")){
-    //     printf("YES\n");
-    // }else if(!strcmp(reset, "n")){
-    //     printf("NO\n");
-    // }
-
-    // while(1){
-    //     switch (curr_state)
-    //     {
-    //     case:
-    //         break;
-        
-    //     default:
-    //         break;
-    //     }
-    // } 
+    // parse_input(entred_command)
 }

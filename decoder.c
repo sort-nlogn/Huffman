@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <Windows.h>
+#include <dirent.h>
 
 int is_directory_name(char* fName){
     char *p = strchr(fName, '.');
