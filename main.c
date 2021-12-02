@@ -151,6 +151,6 @@ int main(){
     }
 
     char **codes = malloc(alphabet_size * sizeof(char *));
-    get_codes(codes, root, nodes, alphabet_size);
+    printf("%d\n", root->freq);
     return 0;
 }
