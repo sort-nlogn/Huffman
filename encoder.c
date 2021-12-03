@@ -75,15 +75,6 @@ void build_tree(Node arr1[513], int alphabet_size){
     }
 }
 
-void write_traverse_string(Node *root){
-    if(root->left){
-        write_traverse_string(root->left);
-        write_traverse_string(root->right);
-    }else{
-        printf("%c\n", root->symbol);
-    }
-}
-
 void get_code(Node *leaf, Node *root, Code *code){
     int len = 0;
     do{
@@ -113,7 +104,6 @@ void encode_file(FILE *in, FILE *out, Code codes[257]){
         curr_byte |= (int)(curr_code.value[code_pos++] == '0' ? 0: 1) << byte_pos++;
         if(byte_pos == 8){
             fputc(curr_byte, out);
-            printf("Curr byte: %d\n", curr_byte);
             curr_byte = 0; byte_pos = 0;
         }
         if(code_pos == curr_code.length){
@@ -126,12 +116,39 @@ void encode_file(FILE *in, FILE *out, Code codes[257]){
     while(code_pos != eof_code.length){
         if(byte_pos == 8){
             fputc(curr_byte, out);
-            printf("Curr byte: %d\n", curr_byte);
             curr_byte = 0; byte_pos = 0;
         }
         curr_byte |= (eof_code.value[code_pos++] == '0'? 0: 1) << byte_pos++;
     }
+    fputc(curr_byte, out);
 }
+
+int dfs(Node *root, FILE *out, int *eof_pos, int curr_pos, char s[]){
+    if(root->left){
+        curr_pos = dfs(root->left, out, eof_pos, curr_pos, s);
+        curr_pos = dfs(root->right, out, eof_pos, curr_pos, s);
+        return curr_pos;
+    }else{
+        curr_pos++;
+        if(root->symbol == 128){
+            *eof_pos = curr_pos;
+        }else{
+            s[strlen(s)] = (char)root->symbol;
+        }
+        return curr_pos;
+    }
+}
+
+void dump_alphabet(FILE *out, Node *root){
+    int eof_pos = 0;
+    char alphabet[257] = {'\0'};
+    dfs(root, out, &eof_pos, 0, alphabet);
+    fputc((char)eof_pos, out);
+    for(int i = 0; i < strlen(alphabet); i++){
+        fputc(alphabet[i], out);
+    }
+    printf("EOF pos: %d\n", eof_pos);
+} 
 
 void dump_traverse_string(FILE *out, Node *root, int alphabet_size){ // 1 - D, 0 - U
     Node **st = malloc((2 * alphabet_size - 1) * sizeof(Node *));
@@ -182,17 +199,20 @@ int main(){
     build_tree(nodes, alphabet_size);
 
     get_codes(codes, nodes, alphabet_size);
-    for(int i = 0; i < alphabet_size; i++){
-        if(nodes[i].symbol < 128){
-            printf("%d code: %s length: %d\n", nodes[i].symbol, get_code_value(i), codes[128 + nodes[i].symbol].length);
-        }else{
-            printf("EOF code: %s length: %d\n", get_code_value(i), codes[128 + nodes[i].symbol].length);
-        }
-    }
+    // for(int i = 0; i < alphabet_size; i++){
+    //     if(nodes[i].symbol < 128){
+    //         printf("%d code: %s length: %d\n", nodes[i].symbol, get_code_value(i), codes[128 + nodes[i].symbol].length);
+    //     }else{
+    //         printf("EOF code: %s length: %d\n", get_code_value(i), codes[128 + nodes[i].symbol].length);
+    //     }
+    // }
     fseek(in, 0, SEEK_SET);
-    encode_file(in, out, codes);
 
     Node *root = nodes + 257 + alphabet_size - 2;
+
+    dump_alphabet(out, root);
     dump_traverse_string(out, root, alphabet_size);
+    encode_file(in, out, codes);
+
     return 0;
 }
