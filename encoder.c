@@ -29,7 +29,7 @@ int cmp(const void *n1, const void *n2){
 int set_frequences(FILE *in, Node nodes[513]){
     char c;
     int alphabet_size = 0;
-    nodes[128].freq = 1; nodes[128].symbol = 128; //pseudo-EOF
+    nodes[256].freq = 1; nodes[256].symbol = 128; //pseudo-EOF
     while(!feof(in)){
         c = fgetc(in);
         nodes[c + 128].freq++;
