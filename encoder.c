@@ -16,6 +16,11 @@ typedef struct{
     int length;
 }Code;
 
+typedef struct{
+    Node *node;
+    int visited_cnt;
+}StackItem;
+
 int cmp(const void *n1, const void *n2){
     int freq1 = ((Node *)n1)->freq;
     int freq2 = ((Node *)n2)->freq;
@@ -27,16 +32,16 @@ int cmp(const void *n1, const void *n2){
 }
 
 int set_frequences(FILE *in, Node nodes[513]){
-    char c;
+    char c = fgetc(in);
     int alphabet_size = 0;
-    nodes[128].freq = 1; nodes[128].symbol = 128; //pseudo-EOF
+    nodes[256].freq = 1; nodes[256].symbol = 128; //pseudo-EOF
     while(!feof(in)){
-        c = fgetc(in);
         nodes[c + 128].freq++;
         if(nodes[c + 128].freq == 1){ // если первый раз встретили этот символ
             alphabet_size++;
             nodes[c + 128].symbol = c;
         }
+        c = fgetc(in);
     }
     qsort(nodes, 257, sizeof(Node), cmp); // первые alpahabet_size + 1(+EOF) нод отсортированы, всё остальное - нули; 
     return alphabet_size + 1; // +EOF
@@ -59,7 +64,7 @@ unsigned int get_freq_sum(Node *arr1, Node *arr2, int i1, int i2, int l1, int l2
 }
 
 void build_tree(Node arr1[513], int alphabet_size){
-    Node *arr2 = arr1 + 257;
+    Node *arr2 = arr1 + 257; // с этого адреса начинаются внутренние
     int i = 0, j = 0;
     for(int k = 0; k < alphabet_size - 1; k++){
         unsigned int s1 = get_freq_sum(arr1, arr1, i, i + 1, alphabet_size, alphabet_size);
@@ -93,20 +98,21 @@ void get_codes(Code codes[257], Node nodes[513], const int alphabet_size){
     for(int i = 0; i < alphabet_size; i++){
         get_code(nodes + i, root, codes + (int)nodes[i].symbol + 128);
     }
-    // get_code(nodes + 256, root, codes + 256);
 }
 
 void encode_file(FILE *in, FILE *out, Code codes[257]){
-    char c = fgetc(in), curr_byte;
+    char c = fgetc(in), curr_byte = 0;
     int byte_pos = 0, code_pos = 0;
     Code curr_code = codes[128 + c];
     while(!feof(in)){
-        curr_byte |= (int)(curr_code.value[code_pos++] == '0' ? 0: 1) << byte_pos++;
+        curr_byte |= (curr_code.value[curr_code.length - 1 - code_pos++] == '0' ? 0: 1) << byte_pos++;
         if(byte_pos == 8){
             fputc(curr_byte, out);
+            printf("Curr byte: %d\n", curr_byte);
             curr_byte = 0; byte_pos = 0;
         }
         if(code_pos == curr_code.length){
+            // printf("Curr char: %c\n", c);
             c = fgetc(in);
             curr_code = codes[128 + c]; code_pos = 0;
         }
@@ -116,10 +122,12 @@ void encode_file(FILE *in, FILE *out, Code codes[257]){
     while(code_pos != eof_code.length){
         if(byte_pos == 8){
             fputc(curr_byte, out);
+            printf("Curr byte: %d\n", curr_byte);
             curr_byte = 0; byte_pos = 0;
         }
-        curr_byte |= (eof_code.value[code_pos++] == '0'? 0: 1) << byte_pos++;
+        curr_byte |= (eof_code.value[eof_code.length - 1 - code_pos++] == '0'? 0: 1) << byte_pos++;
     }
+    printf("Curr byte: %d\n", curr_byte);
     fputc(curr_byte, out);
 }
 
@@ -129,53 +137,61 @@ int dfs(Node *root, FILE *out, int *eof_pos, int curr_pos, char s[]){
         curr_pos = dfs(root->right, out, eof_pos, curr_pos, s);
         return curr_pos;
     }else{
-        curr_pos++;
         if(root->symbol == 128){
             *eof_pos = curr_pos;
         }else{
             s[strlen(s)] = (char)root->symbol;
         }
-        return curr_pos;
+        return ++curr_pos;
     }
 }
 
-void dump_alphabet(FILE *out, Node *root){
+void dump_alphabet(FILE *out, Node *root, int alphabet_size){
     int eof_pos = 0;
     char alphabet[257] = {'\0'};
     dfs(root, out, &eof_pos, 0, alphabet);
+    fputc((char)(alphabet_size - 1), out);
     fputc((char)eof_pos, out);
     for(int i = 0; i < strlen(alphabet); i++){
         fputc(alphabet[i], out);
     }
     printf("EOF pos: %d\n", eof_pos);
-} 
+}
 
-void dump_traverse_string(FILE *out, Node *root, int alphabet_size){ // 1 - D, 0 - U
-    Node **st = malloc((2 * alphabet_size - 1) * sizeof(Node *));
-    size_t head = 0, pos = 0;
+void dump_traverse_string(FILE *out, Node *root){
+    StackItem st[513] = {{.node = NULL}, {.visited_cnt = 0}};
+    size_t head = 1, pos = 0;
     char byte = 0;
-    Node *curr = root; int done = 0;
-    while(!done){        
-        if(curr){
-            if(curr != root){
-                byte |= 1 << pos++;
-           }
-           st[head++] = curr;
-           curr = curr->left;
-       }else{
+    st[0].node = root;
+    while(head){
+        Node *curr = st[head - 1].node;
+        if(!curr->left){
+            st[--head].visited_cnt = 0;
             pos++;
-            if(st[head - 1]->parent->right == st[head - 1]){
-                pos++;
-            }
-            if(pos >= 8){
-                pos %= 8; fputc(byte, out); byte = 0;
-            } 
-            if((head -= 2) == -1){
-                done = 1;
+            printf("U");
+        }else{
+            if(!st[head - 1].visited_cnt){
+                byte |= 1 << pos++;
+                printf("D");
+                st[head - 1].visited_cnt++;
+                st[head++].node = curr->left;
+            }else if(st[head - 1].visited_cnt == 1){
+                byte |= 1 << pos++;
+                printf("D");
+                st[head - 1].visited_cnt++;
+                st[head++].node = curr->right; 
             }else{
-                curr = st[head]->right;
+                st[--head].visited_cnt = 0;
+                if(curr->parent){
+                    pos++;
+                    printf("U");
+                }
             }
-       }   
+        }
+        if(pos >= 8){
+            fputc(byte, out);
+            pos %= 8; byte = 0;
+        }
     }
     if(byte){
         fputc(byte, out);
@@ -189,30 +205,33 @@ int main(){
                         {.left = NULL},
                         {.right = NULL},
                         {.freq = 0},
-                        {.symbol = 0}};
+                        {.symbol = 0}};    
     int alphabet_size = set_frequences(in, nodes);
 
     Code codes[257] = {{.value = {'\0'}},
                         {.length = 0}
                     };
+    
 
     build_tree(nodes, alphabet_size);
 
     get_codes(codes, nodes, alphabet_size);
-    // for(int i = 0; i < alphabet_size; i++){
-    //     if(nodes[i].symbol < 128){
-    //         printf("%d code: %s length: %d\n", nodes[i].symbol, get_code_value(i), codes[128 + nodes[i].symbol].length);
-    //     }else{
-    //         printf("EOF code: %s length: %d\n", get_code_value(i), codes[128 + nodes[i].symbol].length);
-    //     }
-    // }
+    for(int i = 0; i < alphabet_size; i++){
+        if(nodes[i].symbol < 128){
+            printf("%d code: %s length: %d\n", nodes[i].symbol, get_code_value(i), codes[128 + nodes[i].symbol].length);
+        }else{
+            printf("EOF code: %s length: %d\n", get_code_value(i), codes[128 + nodes[i].symbol].length);
+        }
+    }
     fseek(in, 0, SEEK_SET);
 
     Node *root = nodes + 257 + alphabet_size - 2;
-
-    dump_alphabet(out, root);
-    dump_traverse_string(out, root, alphabet_size);
+    dump_alphabet(out, root, alphabet_size);
+    printf("\n");
+    dump_traverse_string(out, root);
+    printf("\n\n");
     encode_file(in, out, codes);
-
+    fclose(in);
+    fclose(out);
     return 0;
 }
