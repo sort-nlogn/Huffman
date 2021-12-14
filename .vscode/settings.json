@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "limits.h": "c",
+        "uuids.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}
