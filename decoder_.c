@@ -26,8 +26,8 @@ void dfs(RestoredNode *root){
     }
 }
 
-void restore_tree(RestoredNode nodes[], FILE *archive, char alphabet[], int eof_pos){
-    int end = strlen(alphabet) + 1; int read_cnt = 0;
+void restore_tree(RestoredNode nodes[], FILE *archive, char alphabet[], short eof_pos, int alphabet_size){
+    int end = alphabet_size; int read_cnt = 0;
     int abc_pos = 0, head = 0; int read_eof = 0;
     RestoredNode *curr = nodes;
     char curr_bit = -1, prev_bit = -1, char_pos = 0;
@@ -79,29 +79,40 @@ void decode_file(RestoredNode *root, FILE *archive, FILE *decoded){
     }
 }
 
+void unpack_archive(FILE *archive, const char *base){
+    while(!feof(archive)){
+        char type = fgetc(archive);
+        if(!type){// regular file
+            char full_path[1024] = {'\0'};
+            char r_path = fgets() 
+            snprintf(base)
+        }
+    }
+}
+
 //alphabet_size -> eof_pos -> alphabet -> traverse_string -> encoded_file
 int main(){
     FILE *archive = fopen("out.bin", "rb");
-    FILE *decoded = fopen("decoded.txt", "wb");
-    int alphabet_size = fgetc(archive);
-    int eof_pos = fgetc(archive);
+    FILE *decoded = fopen("main.exe", "wb");
+    short alphabet_size, eof_pos;
+    fread(&alphabet_size, sizeof(short), 1, archive);
+    fread(&eof_pos, sizeof(short), 1, archive);
     printf("Alphabet size: %d EOF pos: %d\n", alphabet_size, eof_pos);
     char alphabet[257] = {'\0'};
     char c;
-    for(int i = 0; i < alphabet_size; i++){
+    for(int i = 0; i < alphabet_size - 1; i++){
         c = fgetc(archive);
+        printf("Curr symbol: %d\n", c);
         alphabet[i] = c;
     }
-
-    // for(int i = 0; i < alphabet_size; i++){
-    //     printf("%d ", alphabet[i]);
-    // }
     RestoredNode nodes[257 + 256] = {{.left = NULL,
                                     .right = NULL,
                                     .parent = NULL,
                                     .symbol = '\0'}};
-    restore_tree(nodes, archive, alphabet, eof_pos);
+    restore_tree(nodes, archive, alphabet, eof_pos, alphabet_size);
     dfs(nodes);
+    // printf("here");
     decode_file(nodes, archive, decoded);
+    // printf("\n%d ", nodes->left->left->left->left->left->left->left->left->symbol);
     return 0;
 }
