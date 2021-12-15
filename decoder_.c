@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
+#include <dirent.h>
 
 typedef struct RTnode{
     struct RTnode *left, *right, *parent;
@@ -64,10 +65,6 @@ void decode_file(RestoredNode *root, FILE *archive, FILE *decoded){
         curr_bit = (c >> char_pos++) & 1;
         curr = curr_bit? curr->right: curr->left;
 
-        if(char_pos == 8){
-            c = fgetc(archive); char_pos = 0;
-        }
-
         if(!curr->left){ // Leaf
             if(curr->symbol == 128){ // EOF
                 done = 1;
@@ -76,43 +73,102 @@ void decode_file(RestoredNode *root, FILE *archive, FILE *decoded){
                 curr = root;
             }
         }
+
+        if(char_pos == 8 && !done){
+            c = fgetc(archive); char_pos = 0;
+        }
+
     }
+}
+
+void dump_file(FILE *archive, FILE *f){
+    short alphabet_size, eof_pos;
+    fread(&alphabet_size, sizeof(short), 1, archive);
+    fread(&eof_pos, sizeof(short), 1, archive);
+    char alphabet[257] = {'\0'}; char c;
+    for(int i = 0; i < alphabet_size - 1; i++){
+        c = fgetc(archive);
+        alphabet[i] = c;
+    } 
+    RestoredNode nodes[257 + 256] = {{.left = NULL,
+                                    .right = NULL,
+                                    .parent = NULL,
+                                    .symbol = '\0'}};  
+    restore_tree(nodes, archive, alphabet, eof_pos, alphabet_size);
+    decode_file(nodes, archive, f);
 }
 
 void unpack_archive(FILE *archive, const char *base){
     while(!feof(archive)){
         char type = fgetc(archive);
-        if(!type){// regular file
-            char full_path[1024] = {'\0'};
-            char r_path = fgets() 
-            snprintf(base)
+        char buf[1024] = {'\0'};
+        fgets(buf, sizeof(buf), archive); buf[strlen(buf) - 1] = '\0';
+        char cmnd[1024] = {'\0'};
+        snprintf(cmnd, sizeof(cmnd), "mkdir %s%.*s", base, strchr(buf, ' ')-buf, buf);
+
+        if(!opendir(strchr(cmnd, ' ') + 1)){
+            system(cmnd);
+        }
+        if(type == '0' || type == '1'){// regular file || empty file
+            char fp[1024] = {'\0'};
+            snprintf(fp, sizeof(fp), "%s%s", strchr(cmnd, ' ')+1, strchr(buf, ' ')+1);
+            printf("%s\n", fp);
+            FILE *f = fopen(fp, "wb");
+            if(type == '0'){
+                dump_file(archive, f);
+            }
+            fclose(f);
         }
     }
 }
 
 //alphabet_size -> eof_pos -> alphabet -> traverse_string -> encoded_file
-int main(){
-    FILE *archive = fopen("out.bin", "rb");
-    FILE *decoded = fopen("main.exe", "wb");
-    short alphabet_size, eof_pos;
-    fread(&alphabet_size, sizeof(short), 1, archive);
-    fread(&eof_pos, sizeof(short), 1, archive);
-    printf("Alphabet size: %d EOF pos: %d\n", alphabet_size, eof_pos);
-    char alphabet[257] = {'\0'};
-    char c;
-    for(int i = 0; i < alphabet_size - 1; i++){
-        c = fgetc(archive);
-        printf("Curr symbol: %d\n", c);
-        alphabet[i] = c;
+int main(int argc, char *argv[]){
+
+    if(argc < 3){
+        printf("Too few command arguments");
+        exit(0);
     }
-    RestoredNode nodes[257 + 256] = {{.left = NULL,
-                                    .right = NULL,
-                                    .parent = NULL,
-                                    .symbol = '\0'}};
-    restore_tree(nodes, archive, alphabet, eof_pos, alphabet_size);
-    dfs(nodes);
+
+
+    while(argv[1][strlen(argv[1])-1]=='\\'){argv[1][strlen(argv[1])-1] = '\0';}
+    FILE *archive = fopen(argv[1], "rb");
+    if(!archive){
+        printf("Incorrect archive path");
+        exit(0);
+    }
+
+    if(opendir(argv[2])){
+        printf("Save path already exist");
+        exit(0);
+    }
+    char cmnd[1024] = {'\0'};
+    snprintf(cmnd, sizeof(cmnd), "mkdir %s", argv[2]);
+    if(system(cmnd)){
+        printf("Incorrect save path");
+        exit(0);
+    }
+    unpack_archive(archive, argv[2]);
+    // FILE *decoded = fopen("main.exe", "wb");
+    // short alphabet_size, eof_pos;
+    // fread(&alphabet_size, sizeof(short), 1, archive);
+    // fread(&eof_pos, sizeof(short), 1, archive);
+    // printf("Alphabet size: %d EOF pos: %d\n", alphabet_size, eof_pos);
+    // char alphabet[257] = {'\0'};
+    // char c;
+    // for(int i = 0; i < alphabet_size - 1; i++){
+    //     c = fgetc(archive);
+    //     printf("Curr symbol: %d\n", c);
+    //     alphabet[i] = c;
+    // }
+    // RestoredNode nodes[257 + 256] = {{.left = NULL,
+                                    // .right = NULL,
+                                    // .parent = NULL,
+                                    // .symbol = '\0'}};
+    // restore_tree(nodes, archive, alphabet, eof_pos, alphabet_size);
+    // dfs(nodes);
     // printf("here");
-    decode_file(nodes, archive, decoded);
+    // decode_file(nodes, archive, decoded);
     // printf("\n%d ", nodes->left->left->left->left->left->left->left->left->symbol);
     return 0;
 }

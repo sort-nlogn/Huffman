@@ -260,6 +260,7 @@ void dump_file(char *full_path, FILE *archive){
 }
 
 void dump_archive(const char *curr, const char *base, FILE *archive){
+    printf("%s\n", base);
     DIR *dir = opendir(curr);
     if(!(dir = opendir(curr)))
         return;
@@ -279,6 +280,7 @@ void dump_archive(const char *curr, const char *base, FILE *archive){
                 fprintf(archive, efile_f, p_len(fname, ent), fname, ent->d_name);
             }else{ // regular file
                 fprintf(archive, file_f, p_len(fname, ent), fname, ent->d_name);
+                printf(file_f, p_len(fname, ent), fname, ent->d_name);
                 dump_file(path, archive);
             }
         }
