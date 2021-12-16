@@ -1,3 +1,8 @@
+/*
+   ===================      =====================     
+   |ЖЁСТКО РАСПАКОВАЛ|      |ПОЛНЫЙ АРХИВ ФАЙЛОВ|
+   ===================      =====================
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -44,7 +49,6 @@ void restore_tree(RestoredNode nodes[], FILE *archive, char alphabet[], short eo
                     curr->symbol = 128;
                 }else{
                     curr->symbol = alphabet[abc_pos++];
-                    // printf("curr: %d\n", curr->symbol);
                 }
             }
             curr = curr->parent;
@@ -81,7 +85,7 @@ void decode_file(RestoredNode *root, FILE *archive, FILE *decoded){
     }
 }
 
-void dump_file(FILE *archive, FILE *f){
+void unpack_file(FILE *archive, FILE *f){
     short alphabet_size, eof_pos;
     fread(&alphabet_size, sizeof(short), 1, archive);
     fread(&eof_pos, sizeof(short), 1, archive);
@@ -115,7 +119,7 @@ void unpack_archive(FILE *archive, const char *base){
             printf("%s\n", fp);
             FILE *f = fopen(fp, "wb");
             if(type == '0'){
-                dump_file(archive, f);
+                unpack_file(archive, f);
             }
             fclose(f);
         }
@@ -138,37 +142,27 @@ int main(int argc, char *argv[]){
         exit(0);
     }
 
-    if(opendir(argv[2])){
-        printf("Save path already exist");
+    if(!opendir(argv[2])){
+        printf("Incorrect save path");
         exit(0);
     }
     char cmnd[1024] = {'\0'};
-    snprintf(cmnd, sizeof(cmnd), "mkdir %s", argv[2]);
+    snprintf(cmnd, sizeof(cmnd), "mkdir %s\\%.*s", argv[2], 
+            strrchr(argv[1], '.') - strrchr(argv[1], '\\')-1,
+            strrchr(argv[1], '\\') + 1);
+
+    printf("%s\n", cmnd);
+            
+    if(opendir(strrchr(cmnd, ' ') + 1)){
+        printf("%.*s already exist in %s", strrchr(argv[1], '.')-strrchr(argv[1], '\\')-1,
+                        strrchr(argv[1], '\\')+1,
+                        argv[2]);
+        exit(0);
+    }
     if(system(cmnd)){
         printf("Incorrect save path");
         exit(0);
     }
-    unpack_archive(archive, argv[2]);
-    // FILE *decoded = fopen("main.exe", "wb");
-    // short alphabet_size, eof_pos;
-    // fread(&alphabet_size, sizeof(short), 1, archive);
-    // fread(&eof_pos, sizeof(short), 1, archive);
-    // printf("Alphabet size: %d EOF pos: %d\n", alphabet_size, eof_pos);
-    // char alphabet[257] = {'\0'};
-    // char c;
-    // for(int i = 0; i < alphabet_size - 1; i++){
-    //     c = fgetc(archive);
-    //     printf("Curr symbol: %d\n", c);
-    //     alphabet[i] = c;
-    // }
-    // RestoredNode nodes[257 + 256] = {{.left = NULL,
-                                    // .right = NULL,
-                                    // .parent = NULL,
-                                    // .symbol = '\0'}};
-    // restore_tree(nodes, archive, alphabet, eof_pos, alphabet_size);
-    // dfs(nodes);
-    // printf("here");
-    // decode_file(nodes, archive, decoded);
-    // printf("\n%d ", nodes->left->left->left->left->left->left->left->left->symbol);
+    unpack_archive(archive, strrchr(cmnd, ' ') + 1);
     return 0;
 }

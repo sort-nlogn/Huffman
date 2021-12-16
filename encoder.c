@@ -231,6 +231,7 @@ int is_regular_file(const char *path){
 }
 
 void dump_file(char *full_path, FILE *archive){
+    printf("here");
     FILE *in = fopen(full_path, "rb");
     Node nodes[513] = {{.parent = NULL},
                        {.left = NULL},
@@ -260,7 +261,9 @@ void dump_file(char *full_path, FILE *archive){
 }
 
 void dump_archive(const char *curr, const char *base, FILE *archive){
-    printf("%s\n", base);
+    if(!archive){
+        printf("here");
+    }
     DIR *dir = opendir(curr);
     if(!(dir = opendir(curr)))
         return;
@@ -303,16 +306,31 @@ int main(int argc, char *argv[]){
         printf("Incorrect source path");
         exit(0);
     }
+
+    if(!opendir(argv[2])){
+        printf("Incorrect save path");
+        exit(0);
+    }
     int l1 = strlen(argv[1]);
     while(argv[1][l1 - 1] == '\\'){l1--;}
-    if(!strncmp(argv[1], argv[2], l1) || !opendir(argv[2])){
-        printf("Incorrect save path");
+    if(!strncmp(argv[1], argv[2], l1)){
+        printf("%s is subdirectory of %s", argv[2], argv[1]);
         exit(0);
     }
 
     char archive_path[1024] = {'\0'};
-    snprintf(archive_path, sizeof(archive_path), "%s\\%s", argv[2], "archive.hf"); 
+    snprintf(archive_path, sizeof(archive_path), "%s\\%s.hf", argv[2], strrchr(argv[1], '\\') + 1); 
+    if(is_regular_file(archive_path)){
+        printf("%s already exist in %s", strrchr(archive_path, '\\')+1, argv[2]);
+        exit(0);
+    }
+    printf("%s\n", archive_path);
     out = fopen(archive_path, "wb");
+    if(!out){
+        printf("Permission denied");
+        exit(0);
+
+    }
     dump_archive(argv[1], argv[1], out);
 
     fclose(out);
